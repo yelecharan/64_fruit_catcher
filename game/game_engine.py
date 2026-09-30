@@ -1,4 +1,5 @@
 import pygame
+import random
 from game.basket import Basket
 from game.fruit import Fruit
 
@@ -39,7 +40,9 @@ class GameEngine:
         now = pygame.time.get_ticks()
 
         if now - self.last_spawn_time >= self.spawn_delay:
-            self.fruits.append(Fruit(self.width))
+            # Occasionally spawn a hazard instead of a normal fruit
+            is_hazard = random.random() < 0.20
+            self.fruits.append(Fruit(self.width, is_hazard=is_hazard))
             self.last_spawn_time = now
 
         basket_rect = self.basket.rect
@@ -47,18 +50,29 @@ class GameEngine:
         for fruit in self.fruits[:]:
             fruit.update()
 
-            # Fruit successfully caught
+            # Fruit or hazard successfully caught
             if basket_rect.colliderect(fruit.rect):
-                self.score += 1
+
+                if fruit.is_hazard:
+                    # Catching a hazard costs one life
+                    self.lives -= 1
+                else:
+                    # Catching a normal fruit increases the score
+                    self.score += 1
+
                 self.fruits.remove(fruit)
+
+                if self.lives <= 0:
+                    self.game_state = "GAME_OVER"
+
                 continue
 
             # Fruit missed
             if fruit.is_missed(self.height):
+                # Missing any falling item costs one life
                 self.lives -= 1
                 self.fruits.remove(fruit)
 
-                # Game ends when all lives are lost
                 if self.lives <= 0:
                     self.game_state = "GAME_OVER"
 
