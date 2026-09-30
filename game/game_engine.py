@@ -4,12 +4,49 @@ from game.basket import Basket
 from game.fruit import Fruit
 
 
+class Particle:
+    def __init__(self, x, y, color):
+        self.x = x
+        self.y = y
+        self.color = color
+
+        self.radius = random.randint(3, 6)
+
+        self.velocity_x = random.uniform(-3, 3)
+        self.velocity_y = random.uniform(-4, -1)
+
+        self.life = random.randint(20, 35)
+
+    def update(self):
+        self.x += self.velocity_x
+        self.y += self.velocity_y
+
+        self.velocity_y += 0.15
+        self.life -= 1
+
+    def render(self, screen):
+        if self.life <= 0:
+            return
+
+        pygame.draw.circle(
+            screen,
+            self.color,
+            (int(self.x), int(self.y)),
+            self.radius
+        )
+
+    def is_dead(self):
+        return self.life <= 0
+
+
 class GameEngine:
     def __init__(self, width, height):
         self.width = width
         self.height = height
         self.basket = Basket(width, height)
         self.fruits = []
+
+        self.particles = []
 
         self.score = 0
         self.lives = 3
@@ -27,6 +64,16 @@ class GameEngine:
         if self.game_state == "GAME_OVER":
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
                 self.reset()
+
+    def create_splash(self, fruit):
+        for _ in range(10):
+            particle = Particle(
+                fruit.x,
+                fruit.y,
+                fruit.color
+            )
+
+            self.particles.append(particle)
 
     def update(self):
         if self.game_state != "PLAYING":
@@ -82,6 +129,9 @@ class GameEngine:
                     # Catching a normal fruit increases the score
                     self.score += 1
 
+                    # Create splash effect when normal fruit is caught
+                    self.create_splash(fruit)
+
                 self.fruits.remove(fruit)
 
                 if self.lives <= 0:
@@ -92,21 +142,33 @@ class GameEngine:
             # Fruit missed
             if fruit.is_missed(self.height):
 
-                # Missing a normal fruit costs one life.
-                # Missing a hazard has no penalty.
+                # Missing a normal fruit costs one life
                 if not fruit.is_hazard:
                     self.lives -= 1
+
+                    # Create splash effect when normal fruit hits ground
+                    self.create_splash(fruit)
 
                     if self.lives <= 0:
                         self.game_state = "GAME_OVER"
 
                 self.fruits.remove(fruit)
 
+        # Update particles
+        for particle in self.particles[:]:
+            particle.update()
+
+            if particle.is_dead():
+                self.particles.remove(particle)
+
     def reset(self):
         self.basket = Basket(self.width, self.height)
         self.fruits.clear()
+        self.particles.clear()
+
         self.score = 0
         self.lives = 3
+
         self.last_spawn_time = pygame.time.get_ticks()
         self.game_state = "PLAYING"
 
@@ -125,6 +187,10 @@ class GameEngine:
 
         for fruit in self.fruits:
             fruit.render(screen)
+
+        # Render splash particles
+        for particle in self.particles:
+            particle.render(screen)
 
         score_surf = self.font_medium.render(
             f"Score: {self.score}",
