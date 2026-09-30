@@ -13,8 +13,11 @@ class GameEngine:
 
         self.score = 0
         self.lives = 3
+
+        # Base spawn delay
         self.spawn_delay = 750
         self.last_spawn_time = pygame.time.get_ticks()
+
         self.game_state = "PLAYING"
 
         self.font_big = pygame.font.SysFont(None, 48)
@@ -37,12 +40,31 @@ class GameEngine:
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.basket.move_right()
 
+        # Increase difficulty as score increases
+        difficulty_level = self.score // 5
+
+        # Fruits spawn more frequently as score increases
+        current_spawn_delay = max(
+            300,
+            self.spawn_delay - (difficulty_level * 50)
+        )
+
         now = pygame.time.get_ticks()
 
-        if now - self.last_spawn_time >= self.spawn_delay:
+        if now - self.last_spawn_time >= current_spawn_delay:
             # Occasionally spawn a hazard instead of a normal fruit
             is_hazard = random.random() < 0.20
-            self.fruits.append(Fruit(self.width, is_hazard=is_hazard))
+
+            fruit = Fruit(
+                self.width,
+                is_hazard=is_hazard
+            )
+
+            # Increase falling speed as score increases
+            speed_multiplier = 1 + (difficulty_level * 0.15)
+            fruit.speed *= speed_multiplier
+
+            self.fruits.append(fruit)
             self.last_spawn_time = now
 
         basket_rect = self.basket.rect
@@ -69,12 +91,16 @@ class GameEngine:
 
             # Fruit missed
             if fruit.is_missed(self.height):
-                # Missing any falling item costs one life
-                self.lives -= 1
-                self.fruits.remove(fruit)
 
-                if self.lives <= 0:
-                    self.game_state = "GAME_OVER"
+                # Missing a normal fruit costs one life.
+                # Missing a hazard has no penalty.
+                if not fruit.is_hazard:
+                    self.lives -= 1
+
+                    if self.lives <= 0:
+                        self.game_state = "GAME_OVER"
+
+                self.fruits.remove(fruit)
 
     def reset(self):
         self.basket = Basket(self.width, self.height)
@@ -88,6 +114,7 @@ class GameEngine:
         screen.fill((28, 32, 40))
 
         ground_y = self.height - 25
+
         pygame.draw.rect(
             screen,
             (45, 50, 60),
@@ -104,6 +131,7 @@ class GameEngine:
             True,
             (255, 220, 80)
         )
+
         screen.blit(score_surf, (25, 20))
 
         lives_surf = self.font_medium.render(
@@ -111,16 +139,19 @@ class GameEngine:
             True,
             (240, 80, 80)
         )
+
         screen.blit(
             lives_surf,
             (self.width - lives_surf.get_width() - 25, 20)
         )
 
         if self.game_state == "GAME_OVER":
+
             overlay = pygame.Surface(
                 (self.width, self.height),
                 pygame.SRCALPHA
             )
+
             overlay.fill((0, 0, 0, 190))
             screen.blit(overlay, (0, 0))
 
@@ -129,6 +160,7 @@ class GameEngine:
                 True,
                 (235, 70, 70)
             )
+
             screen.blit(
                 over_surf,
                 (
@@ -142,6 +174,7 @@ class GameEngine:
                 True,
                 (255, 255, 255)
             )
+
             screen.blit(
                 final_surf,
                 (
@@ -155,6 +188,7 @@ class GameEngine:
                 True,
                 (200, 200, 200)
             )
+
             screen.blit(
                 restart_surf,
                 (
